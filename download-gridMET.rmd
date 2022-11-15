@@ -1,0 +1,106 @@
+---
+title: Download gridMET data and save 
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+      number_sections: true
+---
+
+# Preparation
+
+## R
+
+```{r}
+pacman::p_load(
+  sf,
+  tidyverse,
+  lubridate,
+  data.table,
+  here
+)
+
+#--- set wd ---#
+setwd(here())
+```
+
+# Download gridMET
+
+## Define the function to download gridMET data 
+
+```{r}
+#' Download gridMET data
+#'
+#' This function downloads gridMET data for the entire U.S.
+#'
+#' @param var_name an sf point
+#' @param year starting year
+#' @return Nothing
+#' @export
+
+get_grid_MET <- function(var_name, year, path, force = TRUE) {
+  target_url <-
+    paste0(
+      "http://www.northwestknowledge.net/metdata/data/",
+      var_name, "_", year,
+      ".nc"
+    )
+
+  file_name <-
+    paste0(
+      path, "/",
+      var_name, "_", year,
+      ".nc"
+    )
+
+  if (!file.exists(file_name) | force == TRUE) {
+    downloader::download(
+      url = target_url,
+      destfile = file_name,
+      mode = "wb"
+    )
+  }
+}
+```
+
+## Download
+
+```{r}
+# === list of weather variables to be downloaded ===#
+var_ls <-
+  c(
+    "pr", # precipitation
+    "tmmn", # tmin (Kelvin)
+    "tmmx", # tmax (Kelvin)
+    "pet" # potential ET
+  )
+
+# === list of years ===#
+year_ls <- 1980:2022
+
+# === var-year data ===#
+par_data <-
+  expand.grid(
+    var_name = var_ls,
+    year = year_ls
+  ) %>%
+  data.table() %>%
+  .[, var_name := as.character(var_name)]
+
+#--- download gridMET data as net CDF files ---#
+lapply(
+  seq_len(nrow(par_data)),
+  function(x) {
+    get_grid_MET(
+      var_name = par_data[x, var_name],
+      year = par_data[x, year],
+      path = "Data/Processed/gridMET",
+      force = FALSE
+    )
+  }
+)
+```
+

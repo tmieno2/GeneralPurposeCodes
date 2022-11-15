@@ -1,0 +1,32 @@
+---
+title: Download PRISM data and save 
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+      number_sections: true
+---
+
+# Preparation
+
+## R
+
+```{r}
+pacman::p_load(
+  sf,
+  tidyverse,
+  lubridate,
+  data.table,
+  here
+)
+
+#--- set wd ---#
+setwd(here())
+
+#--- load functions ---#
+source("Code/functions.R")
+```
+
