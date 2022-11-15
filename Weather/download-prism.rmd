@@ -17,6 +17,10 @@ output:
 ```{r}
 pacman::p_load(
   sf,
+  parallel,
+  terra,
+  prism,
+  stars,
   tidyverse,
   lubridate,
   data.table,
@@ -25,8 +29,76 @@ pacman::p_load(
 
 #--- set wd ---#
 setwd(here())
-
-#--- load functions ---#
-source("Code/functions.R")
 ```
 
+
+```{r}
+#--- set your own path ---#
+storage_path <- "/Volumes/Elements/Database/Weather/PRISM"
+options(prism.path = storage_path)
+# var_type <- "ppt"
+
+#--- define a function to download and save PRISM data stacked by month ---#
+get_save_prism <- function(i, var_type, path) {
+  print(paste0("working on ", i))
+
+  temp_month <- month_year_data[i, month] # working month
+  temp_year <- month_year_data[i, year] # working year
+
+  #--- starting date of the working month-year ---#
+  start_date <- dmy(paste0("1/", temp_month, "/", temp_year))
+  #--- end date ---#
+  end_date <- start_date %m+% months(1) - 1
+
+  #--- download daily PRISM data for the working month-year ---#
+  get_prism_dailys(
+    type = var_type,
+    minDate = as.character(start_date),
+    maxDate = as.character(end_date),
+    keepZip = FALSE
+  )
+
+  #--- list of dates of the working month-year ---#
+  dates_ls <- seq(start_date, end_date, "days")
+
+  #--- remove dashes ---#
+  dates_prism_txt <- str_remove_all(dates_ls, "-")
+
+  #--- folder names ---#
+  folder_name <- paste0("PRISM_", var_type, "_stable_4kmD2_", dates_prism_txt, "_bil")
+
+  #--- the file name of the downloaded data ---#
+  file_name <- paste0("PRISM_", var_type, "_stable_4kmD2_", dates_prism_txt, "_bil.bil")
+
+  #--- complete path to the downloaded files ---#
+  file_path <- paste0(path, "/", folder_name, "/", file_name)
+
+  #--- combine all the PRISM files as a RasterStack ---#
+  temp_stars <- rast(file_path)
+
+  #--- save as a multi-band GeoTIFF file ---#
+  writeRaster(temp_stars, paste0(path, "/PRISM_", var_type, "_y", temp_year, "_m", temp_month, ".tif"), overwrite = T)
+
+  #--- delete all the downloaded files ---#
+  unlink(paste0(path, "/", folder_name), recursive = TRUE)
+}
+```
+
+
+```{r}
+(
+  #--- create a set of year-month combinations to loop over ---#
+  month_year_data <- expand.grid(month = 1:12, year = 1990:2022) %>%
+    data.table()
+)
+```
+
+
+```{r}
+#--- run the above code in parallel ---#
+mclapply(
+  1:nrow(month_year_data),
+  function(x) get_save_prism(x, "ppt", storage_path),
+  mc.cores = detectCores() - 2
+)
+```
